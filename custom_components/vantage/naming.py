@@ -1,7 +1,13 @@
-"""Hierarchical naming utility for Vantage load entities.
+"""Hierarchical naming utilities for Vantage entities and devices.
 
-Replicates the register_id() naming algorithm from pyvantage so that entity IDs
-match the old integration exactly, preserving all automations and history.
+Three public functions, all using the same area-lineage algorithm:
+
+  hierarchical_load_name()    — entity display name for Load objects
+  hierarchical_station_name() — device display name for Station objects (keypads, relays)
+  hierarchical_button_name()  — entity display name for Button objects
+
+The load-naming algorithm replicates pyvantage register_id() exactly so that
+entity IDs match the old integration, preserving automations and history.
 """
 
 from __future__ import annotations
@@ -56,6 +62,28 @@ def hierarchical_load_name(client: "Vantage", obj: "LocationObject") -> str:
     prefix = "-".join(parts) + "-" if parts else ""
     load_name = getattr(obj, "d_name", None) or obj.name
     return prefix + load_name
+
+
+def hierarchical_station_name(client: "Vantage", obj: "LocationObject") -> str:
+    """Build a hierarchical name for a station device (keypad, relay, etc.).
+
+    Uses the same algorithm as hierarchical_load_name so that device names in
+    the HA device registry are unique and area-contextual without needing to
+    hard-code area names into the XML.
+
+    Example: Keypad "Keypad Entry" in Wine Cellar (Basement)
+      → "Basement-Wine Cellar-Keypad Entry"
+    """
+    lineage = get_area_lineage(client, obj.area)
+    parts = [
+        p
+        for p in reversed(lineage[:-1])
+        if not p.startswith("Station Load ")
+        and not p.startswith("Color Load ")
+    ]
+    prefix = "-".join(parts) + "-" if parts else ""
+    station_name = (getattr(obj, "d_name", None) or obj.name).strip()
+    return prefix + station_name
 
 
 def hierarchical_button_name(client: "Vantage", obj: "Button") -> str:

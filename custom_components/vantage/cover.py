@@ -15,6 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .config_entry import VantageConfigEntry
 from .entity import VantageEntity, add_entities_from_controller
+from .naming import hierarchical_load_name
 
 
 async def async_setup_entry(
@@ -40,6 +41,12 @@ class VantageCoverEntity[T: BlindTypes | BlindGroupTypes](
     VantageEntity[T], CoverEntity
 ):
     """Vantage blind cover entity."""
+
+    _attr_has_entity_name = False
+
+    @property
+    def name(self) -> str:
+        return hierarchical_load_name(self.client, self.obj)
 
     _attr_supported_features = (
         CoverEntityFeature.OPEN

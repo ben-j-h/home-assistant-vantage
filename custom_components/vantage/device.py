@@ -21,6 +21,7 @@ from homeassistant.helpers.entity import DeviceInfo
 
 from .config_entry import VantageConfigEntry
 from .const import DOMAIN
+from .naming import hierarchical_station_name
 
 
 async def add_devices_from_controller[T: SystemObject](
@@ -96,8 +97,14 @@ class ChildObject(Protocol):
 
 def vantage_device_info(client: Vantage, obj: SystemObject) -> DeviceInfo:
     """Build the device info for a Vantage object."""
-    # Strip whitespace; fall back to "Type VID" so HA never shows "Unnamed device"
-    name = (obj.d_name or obj.name).strip() or f"{obj.vantage_type()} {obj.vid}"
+    # Station objects (keypads, relays, etc.) get hierarchical names that include
+    # area lineage, making them unique in the device registry without needing to
+    # hard-code area names into the XML config.  All other devices (masters,
+    # modules) keep their bare names, which are already unique.
+    if isinstance(obj, StationObject) and isinstance(obj, LocationObject):
+        name = hierarchical_station_name(client, obj) or f"{obj.vantage_type()} {obj.vid}"
+    else:
+        name = (obj.d_name or obj.name).strip() or f"{obj.vantage_type()} {obj.vid}"
     device_info = DeviceInfo(
         identifiers={(DOMAIN, str(obj.vid))},
         name=name,

@@ -133,10 +133,15 @@ class VantageLoadLightEntity(VantageEntity[Load], LightEntity):
 class VantageLoadGroupLightEntity(VantageEntity[LoadGroup], LightEntity):
     """Vantage load group light entity."""
 
+    _attr_has_entity_name = False
     _attr_icon = "mdi:lightbulb-group"
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
     _attr_color_mode = ColorMode.BRIGHTNESS
     _attr_supported_features = LightEntityFeature.TRANSITION
+
+    @property
+    def name(self) -> str:
+        return hierarchical_load_name(self.client, self.obj)
 
     @property
     @override
@@ -168,7 +173,12 @@ class VantageLoadGroupLightEntity(VantageEntity[LoadGroup], LightEntity):
 class VantageRGBLoadLightEntity(VantageEntity[RGBLoadTypes], LightEntity):
     """Vantage RGB load light entity."""
 
+    _attr_has_entity_name = False
     _attr_supported_features = LightEntityFeature.TRANSITION
+
+    @property
+    def name(self) -> str:
+        return hierarchical_load_name(self.client, self.obj)
 
     @property
     @override
