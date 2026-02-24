@@ -6,7 +6,8 @@ import socket
 from typing import override
 
 from aiovantage.controllers import Controller
-from aiovantage.objects import AnemoSensor, LightSensor, Master, OmniSensor, Temperature
+from aiovantage.events import ObjectUpdated
+from aiovantage.objects import AnemoSensor, Button, LightSensor, Master, OmniSensor, Temperature
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -23,9 +24,11 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from .config_entry import VantageConfigEntry
 from .entity import VantageEntity, add_entities_from_controller
+from .naming import hierarchical_button_name
 
 FOOT_CANDLES_TO_LUX = 10.7639
 
@@ -79,6 +82,11 @@ async def async_setup_entry(
     # Add all master IP addresses as sensor entities
     add_entities_from_controller(
         entry, async_add_entities, VantageMasterIPSensorEntity, vantage.masters
+    )
+
+    # Add all button objects as press/release sensor entities
+    add_entities_from_controller(
+        entry, async_add_entities, VantageButtonSensorEntity, vantage.buttons
     )
 
 
@@ -179,7 +187,7 @@ class VantageMasterIPSensorEntity(VantageEntity[Master], SensorEntity):
     @property
     @override
     def unique_id(self) -> str:
-        return f"{self.obj.vid}:ip_address"
+        return f"vantagevid-{self.obj.vid}:ip_address"
 
     @property
     @override
@@ -188,3 +196,60 @@ class VantageMasterIPSensorEntity(VantageEntity[Master], SensorEntity):
             return socket.gethostbyname(self.client.host)
 
         return None
+
+
+class VantageButtonSensorEntity(VantageEntity[Button], SensorEntity, RestoreEntity):
+    """Sensor entity for a Vantage button, exposing press/release state.
+
+    State values mirror the old hass-vantage integration: "PRESS" when the button
+    is held down, "RELEASE" when released. This allows automations to trigger on
+    both events, enabling hold-while-dimming patterns.
+
+    RestoreEntity is used because button state cannot be queried from the Vantage
+    controller — it is an instantaneous action. The last known state is restored
+    on HA restart so entity history remains continuous.
+    """
+
+    _attr_has_entity_name = False
+    _attr_icon = "mdi:gesture-tap-button"
+
+    def __init__(
+        self,
+        entry: VantageConfigEntry,
+        controller: Controller[Button],
+        obj: Button,
+    ) -> None:
+        """Initialize the button sensor."""
+        super().__init__(entry, controller, obj)
+        # Attach to the parent station device if available
+        if station := self.client.stations.get(obj.parent.vid):
+            self.parent_obj = station
+
+    @property
+    @override
+    def name(self) -> str:
+        """Return the hierarchical name for the button sensor."""
+        return hierarchical_button_name(self.client, self.obj)
+
+    @property
+    @override
+    def native_value(self) -> str | None:
+        """Return PRESS when button is down, RELEASE when up."""
+        if self.obj.state is None:
+            return None
+        return "PRESS" if self.obj.is_down else "RELEASE"
+
+    @override
+    async def async_added_to_hass(self) -> None:
+        """Restore last known state on startup."""
+        await super().async_added_to_hass()
+        if last_state := await self.async_get_last_state():
+            # Only restore PRESS/RELEASE values; ignore unavailable/unknown
+            if last_state.state in ("PRESS", "RELEASE"):
+                # Seed the button interface state so native_value returns correctly
+                # until the next real event arrives from the controller
+                self.obj.state = (
+                    Button.State.Down
+                    if last_state.state == "PRESS"
+                    else Button.State.Up
+                )
