@@ -9,6 +9,7 @@ from aiovantage.errors import CommandError
 from aiovantage.events import ObjectAdded, ObjectDeleted, ObjectUpdated
 from aiovantage.objects import (
     Enclosure,
+    Load,
     LocationObject,
     Master,
     Module,
@@ -148,6 +149,18 @@ def vantage_device_info(client: Vantage, obj: SystemObject) -> DeviceInfo:
     if isinstance(obj, Master) or isinstance(obj, StationObject):
         if obj.serial_number:
             device_info["serial_number"] = str(obj.serial_number)
+
+    # For Load devices, surface wiring info directly on the device card:
+    #   model        → load type (e.g. "Incandescent", "Low Voltage Relay")
+    #   serial_number → contractor wiring label (e.g. "A2")
+    #   hw_version   → module output channel (e.g. "Channel 5")
+    if isinstance(obj, Load):
+        if obj.load_type:
+            device_info["model"] = obj.load_type
+        if obj.contractor_number:
+            device_info["serial_number"] = obj.contractor_number
+        if obj.parent.position:
+            device_info["hw_version"] = f"Channel {obj.parent.position}"
 
     # Set up device relationships
     if not isinstance(obj, Master):
