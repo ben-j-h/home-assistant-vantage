@@ -8,8 +8,11 @@ from aiovantage.controllers import Controller
 from aiovantage.errors import CommandError
 from aiovantage.events import ObjectAdded, ObjectDeleted, ObjectUpdated
 from aiovantage.objects import (
+    Enclosure,
     LocationObject,
     Master,
+    Module,
+    ModuleGen2,
     Parent,
     StationObject,
     SystemObject,
@@ -81,8 +84,9 @@ async def async_setup_devices(hass: HomeAssistant, entry: VantageConfigEntry) ->
     """Set up Vantage devices in the device registry."""
     vantage = entry.runtime_data.client
 
-    # Register "parent" devices (controllers, modules, port devices, and stations)
+    # Register "parent" devices (controllers, enclosures, modules, port devices, and stations)
     await add_devices_from_controller(hass, entry, vantage.masters)
+    await add_devices_from_controller(hass, entry, vantage.enclosures)
     await add_devices_from_controller(hass, entry, vantage.modules)
     await add_devices_from_controller(hass, entry, vantage.port_devices)
     await add_devices_from_controller(hass, entry, vantage.stations)
@@ -97,10 +101,20 @@ class ChildObject(Protocol):
 
 def vantage_device_info(client: Vantage, obj: SystemObject) -> DeviceInfo:
     """Build the device info for a Vantage object."""
-    # LocationObject devices (loads, stations) get hierarchical names that
-    # include area lineage, making them unique in the device registry.
-    # Masters and modules keep their bare names, which are already unique.
-    if isinstance(obj, StationObject) and isinstance(obj, LocationObject):
+    # Build a unique, human-readable name for the device.
+    # Modules are named "{Enclosure} – {Module}" so that Module 1 in two
+    # different enclosures produces distinct device names.
+    # Enclosures use their own descriptive names (already area-contextual).
+    # Stations and loads use hierarchical area-prefixed names.
+    if isinstance(obj, (Module, ModuleGen2)):
+        if enc := client.enclosures.get(obj.parent.vid):
+            enc_name = (enc.d_name or "").strip() or enc.name
+            name = f"{enc_name} \u2013 {obj.name}"
+        else:
+            name = obj.name.strip() or f"{obj.vantage_type()} {obj.vid}"
+    elif isinstance(obj, Enclosure):
+        name = (obj.d_name or "").strip() or obj.name.strip() or f"{obj.vantage_type()} {obj.vid}"
+    elif isinstance(obj, StationObject) and isinstance(obj, LocationObject):
         name = hierarchical_station_name(client, obj) or f"{obj.vantage_type()} {obj.vid}"
     elif isinstance(obj, LocationObject):
         name = hierarchical_load_name(client, obj) or f"{obj.vantage_type()} {obj.vid}"

@@ -1,7 +1,7 @@
 """Support for generic Vantage entities."""
 
 from collections.abc import Awaitable, Callable, Iterable
-from typing import override
+from typing import Any, override
 
 from aiovantage import Vantage
 from aiovantage.controllers import Controller
@@ -12,7 +12,7 @@ from aiovantage.errors import (
     LoginRequiredError,
 )
 from aiovantage.events import ObjectAdded, ObjectDeleted, ObjectUpdated
-from aiovantage.objects import GMem, SystemObject
+from aiovantage.objects import GMem, Load, SystemObject
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -110,6 +110,24 @@ class VantageEntity[T: SystemObject](Entity):
             return vantage_device_info(self.client, self.parent_obj)
 
         return vantage_device_info(self.client, self.obj)
+
+    @property
+    @override
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return module wiring info for Load-based entities."""
+        if not isinstance(self.obj, Load):
+            return None
+        attrs: dict[str, Any] = {}
+        if self.obj.contractor_number:
+            attrs["contractor_number"] = self.obj.contractor_number
+        if module := self.client.modules.get(self.obj.parent.vid):
+            attrs["module_channel"] = self.obj.parent.position
+            if enc := self.client.enclosures.get(module.parent.vid):
+                enc_name = (enc.d_name or "").strip() or enc.name
+                attrs["module"] = f"{enc_name} \u2013 {module.name}"
+            else:
+                attrs["module"] = module.name
+        return attrs or None
 
     async def async_request_call[U](self, coro: Awaitable[U]) -> U:
         """Send a request to the Vantage controller."""

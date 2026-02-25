@@ -30,6 +30,8 @@ async def async_setup_entry(
 class VantageBinarySensorEntity(VantageEntity[DryContact], BinarySensorEntity):
     """Binary sensor entity provided by a Vantage DryContact object."""
 
+    _attr_should_poll = True
+
     def __init__(
         self,
         entry: VantageConfigEntry,
@@ -39,8 +41,12 @@ class VantageBinarySensorEntity(VantageEntity[DryContact], BinarySensorEntity):
         """Initialize a Vantage binary sensor entity."""
         super().__init__(entry, controller, obj)
 
-        # If this is a thermostat contact, attach it to the thermostat device
+        # Attach to parent device: thermostat, keypad, or other station.
+        # This gives the entity hierarchical context through the device name
+        # (e.g. "Motion Sensor" under "Basement-Bathroom-Basement Bathroom Keypad").
         if parent := self.client.thermostats.get(self.obj.parent.vid):
+            self.parent_obj = parent
+        elif parent := self.client.stations.get(self.obj.parent.vid):
             self.parent_obj = parent
 
     @property
