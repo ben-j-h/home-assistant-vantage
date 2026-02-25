@@ -9,8 +9,9 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import ATTR_ID, ATTR_NAME
 from homeassistant.core import HomeAssistant, ServiceCall
 import homeassistant.helpers.config_validation as cv
+from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, LOGGER, SERVICE_START_TASK, SERVICE_STOP_TASK
+from .const import DOMAIN, LOGGER, SERVICE_START_TASK, SERVICE_STOP_TASK, SERVICE_SYNC_DATETIME
 
 TASK_SCHEMA = vol.All(
     cv.has_at_most_one_key(ATTR_ID, ATTR_NAME),  # type: ignore
@@ -63,6 +64,24 @@ def async_register_services(hass: HomeAssistant) -> None:
         if task := find_task(task_id_or_name):
             await task.stop()
 
+    async def sync_datetime(call: ServiceCall) -> None:
+        """Sync the Vantage controller clock to the Home Assistant system time."""
+        now = dt_util.now()
+
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            if entry.state is not ConfigEntryState.LOADED:
+                continue
+
+            vantage: Vantage = entry.runtime_data.client
+            try:
+                await vantage.set_datetime(now)
+                LOGGER.info(
+                    "Synced Vantage clock to %s",
+                    now.strftime("%Y-%m-%d %H:%M:%S %Z"),
+                )
+            except Exception as err:
+                LOGGER.error("Failed to sync Vantage datetime: %s", err)
+
     # Register services
     if not hass.services.has_service(DOMAIN, SERVICE_START_TASK):
         hass.services.async_register(
@@ -73,3 +92,6 @@ def async_register_services(hass: HomeAssistant) -> None:
         hass.services.async_register(
             DOMAIN, SERVICE_STOP_TASK, stop_task, schema=TASK_SCHEMA
         )
+
+    if not hass.services.has_service(DOMAIN, SERVICE_SYNC_DATETIME):
+        hass.services.async_register(DOMAIN, SERVICE_SYNC_DATETIME, sync_datetime)

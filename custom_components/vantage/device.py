@@ -41,6 +41,10 @@ async def add_devices_from_controller[T: SystemObject](
         if isinstance(obj, Master):
             with contextlib.suppress(CommandError):
                 device_info["sw_version"] = await obj.get_application_version()
+            # Fall back to the firmware version from the local config file if the
+            # live controller did not return one (e.g. secondary controller).
+            if "sw_version" not in device_info and obj.firmware_version:
+                device_info["sw_version"] = obj.firmware_version
 
         dev_reg.async_get_or_create(config_entry_id=entry.entry_id, **device_info)
 
@@ -149,6 +153,10 @@ def vantage_device_info(client: Vantage, obj: SystemObject) -> DeviceInfo:
     if isinstance(obj, Master) or isinstance(obj, StationObject):
         if obj.serial_number:
             device_info["serial_number"] = str(obj.serial_number)
+
+    # Attach MAC address for Master devices (links the HA device to the physical hardware)
+    if isinstance(obj, Master) and obj.mac_address:
+        device_info["connections"] = {(dr.CONNECTION_NETWORK_MAC, obj.mac_address)}
 
     # For Load devices, surface wiring info directly on the device card:
     #   model        → load type (e.g. "Incandescent", "Low Voltage Relay")

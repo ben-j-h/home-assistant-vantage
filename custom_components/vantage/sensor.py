@@ -3,7 +3,7 @@
 import contextlib
 from decimal import Decimal
 import socket
-from typing import override
+from typing import Any, override
 
 from aiovantage.controllers import Controller
 from aiovantage.events import ObjectUpdated
@@ -192,10 +192,23 @@ class VantageMasterIPSensorEntity(VantageEntity[Master], SensorEntity):
     @property
     @override
     def native_value(self) -> str | None:
+        if self.obj.ip_address:
+            return self.obj.ip_address
+
         with contextlib.suppress(socket.gaierror):
             return socket.gethostbyname(self.client.host)
 
         return None
+
+    @property
+    @override
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        attrs: dict[str, Any] = {}
+        if self.obj.mac_address:
+            attrs["mac_address"] = self.obj.mac_address
+        if self.obj.firmware_version:
+            attrs["firmware_version"] = self.obj.firmware_version
+        return attrs or None
 
 
 class VantageButtonSensorEntity(VantageEntity[Button], SensorEntity, RestoreEntity):
