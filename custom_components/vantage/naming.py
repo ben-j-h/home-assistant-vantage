@@ -33,7 +33,7 @@ def get_area_lineage(client: "Vantage", area_vid: int | None) -> list[str]:
         area = client.areas.get(current)
         if area is None:
             break
-        lineage.append(area.d_name or area.name)
+        lineage.append((area.d_name or "").strip() or area.name)
         current = area.area  # parent area VID; 0 or None at root
         count += 1
     return lineage
@@ -60,7 +60,7 @@ def hierarchical_load_name(client: "Vantage", obj: "LocationObject") -> str:
         and not p.startswith("Color Load ")
     ]
     prefix = "-".join(parts) + "-" if parts else ""
-    load_name = getattr(obj, "d_name", None) or obj.name
+    load_name = (getattr(obj, "d_name", None) or "").strip() or obj.name
     return prefix + load_name
 
 
@@ -82,7 +82,7 @@ def hierarchical_station_name(client: "Vantage", obj: "LocationObject") -> str:
         and not p.startswith("Color Load ")
     ]
     prefix = "-".join(parts) + "-" if parts else ""
-    station_name = (getattr(obj, "d_name", None) or obj.name).strip()
+    station_name = (getattr(obj, "d_name", None) or "").strip() or obj.name.strip() or str(obj.vid)
     return prefix + station_name
 
 
@@ -123,7 +123,7 @@ def hierarchical_button_name(client: "Vantage", obj: "Button") -> str:
         if not p.startswith("Station Load ")
         and not p.startswith("Color Load ")
     ]
-    station_name = (station.d_name or station.name).strip()
+    station_name = (station.d_name or "").strip() or station.name.strip() or str(station.vid)
     parts.append(station_name)
     prefix = "-".join(parts) + "-" if parts else ""
     btn_name = obj.text1.strip() or obj.name.strip()
