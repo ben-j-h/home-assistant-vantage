@@ -65,6 +65,7 @@ class VantageLoadLightEntity(VantageEntity[Load], LightEntity):
     """Vantage load light entity."""
 
     _attr_has_entity_name = False
+    _state_write_debounce_ms = 50
 
     @property
     def name(self) -> str:
@@ -138,6 +139,7 @@ class VantageLoadGroupLightEntity(VantageEntity[LoadGroup], LightEntity):
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
     _attr_color_mode = ColorMode.BRIGHTNESS
     _attr_supported_features = LightEntityFeature.TRANSITION
+    _state_write_debounce_ms = 50
 
     @property
     def name(self) -> str:
@@ -175,6 +177,7 @@ class VantageRGBLoadLightEntity(VantageEntity[RGBLoadTypes], LightEntity):
 
     _attr_has_entity_name = False
     _attr_supported_features = LightEntityFeature.TRANSITION
+    _state_write_debounce_ms = 50
 
     @property
     def name(self) -> str:

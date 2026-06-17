@@ -23,6 +23,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.util.ssl import get_default_no_verify_context
 
+from .batch import VantageStateBatcher
 from .config_entry import VantageConfigEntry, VantageData
 from .device import async_cleanup_devices, async_setup_devices
 from .entity import async_cleanup_entities
@@ -70,8 +71,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: VantageConfigEntry) -> b
         local_config_file=local_config_file,
     )
 
-    # Store the client in the config entry's runtime data
-    entry.runtime_data = VantageData(client=vantage)
+    # Store the client and state batcher in the config entry's runtime data
+    batcher = VantageStateBatcher(hass)
+    entry.runtime_data = VantageData(client=vantage, batcher=batcher)
+    entry.async_on_unload(batcher.cancel)
 
     try:
         # Initialize and fetch all objects

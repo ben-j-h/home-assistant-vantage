@@ -79,6 +79,12 @@ class VantageEntity[T: SystemObject](Entity):
 
     parent_obj: SystemObject | None = None
 
+    # Subclasses that receive rapid burst updates (load dimmers, covers) set this
+    # to route through the integration-level VantageStateBatcher instead of
+    # calling async_write_ha_state() directly on each event. Entities that must
+    # reflect state immediately (buttons, binary sensors) leave this at 0.
+    _state_write_debounce_ms: int = 0
+
     def __init__(self, entry: VantageConfigEntry, controller: Controller[T], obj: T):
         """Initialize a generic Vantage entity."""
         self.entry = entry
@@ -157,6 +163,11 @@ class VantageEntity[T: SystemObject](Entity):
             self.controller.subscribe(ObjectDeleted, self._on_object_deleted)
         )
 
+        if self._state_write_debounce_ms:
+            self.async_on_remove(
+                lambda: self.entry.runtime_data.batcher.remove(self)
+            )
+
     async def async_update(self) -> None:
         """Manually update the entity state, for polling entities."""
         try:
@@ -185,8 +196,10 @@ class VantageEntity[T: SystemObject](Entity):
                     **vantage_device_info(self.client, self.obj),
                 )
 
-        # Tell HA the state has changed.
-        self.async_write_ha_state()
+        if self._state_write_debounce_ms:
+            self.entry.runtime_data.batcher.mark_dirty(self)
+        else:
+            self.async_write_ha_state()
 
     def _on_object_deleted(self, event: ObjectDeleted[T]) -> None:
         if event.obj != self.obj:
