@@ -6,6 +6,8 @@ from homeassistant.config_entries import ConfigEntry
 
 from aiovantage import Vantage
 
+from .batch import VantageStateBatcher
+
 type VantageConfigEntry = ConfigEntry[VantageData]
 
 
@@ -14,3 +16,4 @@ class VantageData:
     """Data for a Vantage config entry."""
 
     client: Vantage
+    batcher: VantageStateBatcher
