@@ -43,6 +43,7 @@ class VantageCoverEntity[T: BlindTypes | BlindGroupTypes](
     """Vantage blind cover entity."""
 
     _attr_has_entity_name = False
+    _state_write_debounce_ms = 50
 
     @property
     def name(self) -> str:

@@ -1,6 +1,7 @@
 """Support for generic Vantage entities."""
 
 from collections.abc import Awaitable, Callable, Iterable
+from datetime import datetime
 from typing import Any, override
 
 from aiovantage import Vantage
@@ -14,11 +15,12 @@ from aiovantage.errors import (
 from aiovantage.events import ObjectAdded, ObjectDeleted, ObjectUpdated
 from aiovantage.objects import GMem, Load, SystemObject
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo, Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_call_later
 
 from .config_entry import VantageConfigEntry
 from .const import DOMAIN, LOGGER
@@ -78,6 +80,13 @@ class VantageEntity[T: SystemObject](Entity):
     _unavailable_logged: bool = False
 
     parent_obj: SystemObject | None = None
+
+    # Subclasses that receive rapid push updates (load dimmers, covers) set this
+    # to a positive millisecond value to coalesce bursts into a single HA state
+    # write. Entities that must be instantaneous (buttons, binary sensors) leave
+    # this at 0.
+    _state_write_debounce_ms: int = 0
+    _debounce_unsub: Callable[[], None] | None = None
 
     def __init__(self, entry: VantageConfigEntry, controller: Controller[T], obj: T):
         """Initialize a generic Vantage entity."""
@@ -157,6 +166,13 @@ class VantageEntity[T: SystemObject](Entity):
             self.controller.subscribe(ObjectDeleted, self._on_object_deleted)
         )
 
+        self.async_on_remove(self._cancel_debounce)
+
+    def _cancel_debounce(self) -> None:
+        if self._debounce_unsub is not None:
+            self._debounce_unsub()
+            self._debounce_unsub = None
+
     async def async_update(self) -> None:
         """Manually update the entity state, for polling entities."""
         try:
@@ -185,7 +201,19 @@ class VantageEntity[T: SystemObject](Entity):
                     **vantage_device_info(self.client, self.obj),
                 )
 
-        # Tell HA the state has changed.
+        if self._state_write_debounce_ms:
+            self._cancel_debounce()
+            self._debounce_unsub = async_call_later(
+                self.hass,
+                self._state_write_debounce_ms / 1000,
+                self._debounced_write,
+            )
+        else:
+            self.async_write_ha_state()
+
+    @callback
+    def _debounced_write(self, _now: datetime) -> None:
+        self._debounce_unsub = None
         self.async_write_ha_state()
 
     def _on_object_deleted(self, event: ObjectDeleted[T]) -> None:
