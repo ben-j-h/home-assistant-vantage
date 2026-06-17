@@ -17,9 +17,9 @@
     "custom_components.vantage"
   ],
   "requirements": [
-    "aiovantage @ git+https://github.com/ben-j-h/aiovantage@v0.23.0"
+    "git+https://github.com/ben-j-h/aiovantage.git@v0.23.0#egg=aiovantage==0.23.0"
   ],
-  "version": "0.15.0",
+  "version": "0.15.1",
   "zeroconf": [
     {
       "type": "_secure_aci._tcp.local.",
