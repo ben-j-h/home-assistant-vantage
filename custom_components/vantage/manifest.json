@@ -17,7 +17,7 @@
     "custom_components.vantage"
   ],
   "requirements": [
-    "aiovantage @ git+https://github.com/ben-j-h/aiovantage@main"
+    "aiovantage @ git+https://github.com/ben-j-h/aiovantage@v0.23.0"
   ],
   "version": "0.15.0",
   "zeroconf": [
