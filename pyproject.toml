@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "home-assistant-vantage"
-version = "0.15.3"
+version = "0.15.4"
 description = "Home Assistant integration for Vantage InFusion home automation controllers."
 readme = "README.md"
 requires-python = ">=3.14,<4.0"
 authors = [{ name = "James Smith", email = "james@loopj.com" }]
 classifiers = ["Private :: Do Not Upload"]
 dependencies = [
-    "aiovantage @ git+https://github.com/ben-j-h/aiovantage.git@v0.23.1",
+    "aiovantage @ git+https://github.com/ben-j-h/aiovantage.git@v0.23.2",
     "homeassistant>=2026.2.0",
     "colorlog==6.10.1",
 ]
@@ -77,7 +77,7 @@ reportIncompatibleVariableOverride = "none"
 reportUnnecessaryIsInstance = false
 
 [tool.bumpver]
-current_version = "0.15.3"
+current_version = "0.15.4"
 version_pattern = "MAJOR.MINOR.PATCH[PYTAGNUM]"
 commit_message = "Bump version {old_version} -> {new_version}"
 commit = true

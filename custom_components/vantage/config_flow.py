@@ -19,7 +19,7 @@ from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.util.ssl import get_default_no_verify_context
 
 from .config_entry import VantageConfigEntry
-from .const import CONF_BLUE_BUTTON_LED, DOMAIN
+from .const import CONF_BLUE_BUTTON_LED, CONF_LOCAL_CONFIG_REQUIRED, DOMAIN
 
 USER_SCHEMA = vol.Schema(
     {
@@ -55,6 +55,12 @@ class OptionsFlow(config_entries.OptionsFlow):
                         CONF_BLUE_BUTTON_LED,
                         default=self.config_entry.options.get(
                             CONF_BLUE_BUTTON_LED, False
+                        ),
+                    ): bool,
+                    vol.Required(
+                        CONF_LOCAL_CONFIG_REQUIRED,
+                        default=self.config_entry.options.get(
+                            CONF_LOCAL_CONFIG_REQUIRED, False
                         ),
                     ): bool,
                 }

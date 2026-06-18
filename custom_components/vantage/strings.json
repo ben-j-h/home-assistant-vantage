@@ -41,6 +41,19 @@
       }
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "blue_button_led": "Blue button LED support",
+          "local_config_required": "Use local config file only (never pull from controller)"
+        },
+        "data_description": {
+          "local_config_required": "When enabled, the integration will only load objects from the local {host}_config.txt backup file. If the file is missing, setup will fail with an error rather than fetching live data from the controller."
+        }
+      }
+    }
+  },
   "entity": {
     "climate": {
       "vantage": {

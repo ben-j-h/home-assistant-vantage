@@ -25,3 +25,7 @@ FAN_MAX = "max"
 
 # Button LED option: set True when keypads support the blue channel
 CONF_BLUE_BUTTON_LED = "blue_button_led"
+
+# When True, raise an error if the local config file is missing instead of
+# falling back to live discovery from the controller.
+CONF_LOCAL_CONFIG_REQUIRED = "local_config_required"

@@ -25,6 +25,7 @@ from homeassistant.util.ssl import get_default_no_verify_context
 
 from .batch import VantageStateBatcher
 from .config_entry import VantageConfigEntry, VantageData
+from .const import CONF_LOCAL_CONFIG_REQUIRED
 from .device import async_cleanup_devices, async_setup_devices
 from .entity import async_cleanup_entities
 from .events import async_setup_events
@@ -52,14 +53,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: VantageConfigEntry) -> b
     host = entry.data[CONF_HOST]
 
     # Look for a local Design Center backup XML in the HA config directory.
-    # If present, object discovery reads from the file instead of the live
-    # controller — preserving any loads deleted from Design Center (phantom
-    # loads) while keeping the command port connection for real-time updates.
     # File naming convention matches pyvantage: {host}_config.txt
-    local_config_file: Path | None = None
+    use_local_only = entry.options.get(CONF_LOCAL_CONFIG_REQUIRED, False)
     candidate = Path(hass.config.config_dir) / f"{host}_config.txt"
-    if candidate.is_file():
-        local_config_file = candidate
+    local_config_file = candidate if (use_local_only or candidate.is_file()) else None
 
     # Create a Vantage client
     vantage = Vantage(
@@ -69,6 +66,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: VantageConfigEntry) -> b
         ssl=entry.data.get(CONF_SSL, True),
         ssl_context_factory=get_default_no_verify_context,
         local_config_file=local_config_file,
+        local_config_file_required=use_local_only,
     )
 
     # Store the client and state batcher in the config entry's runtime data
@@ -124,10 +122,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: VantageConfigEntry) -> b
         # reconfigure the integration.
         raise ConfigEntryAuthFailed from err
 
-    except ClientConnectionError as err:
-        # Handle connection errors. Home Assistant will automatically take care of
-        # retrying set up later.
-        raise ConfigEntryNotReady from err
+    except (ClientConnectionError, FileNotFoundError) as err:
+        # Handle connection errors and missing required local config file.
+        # Home Assistant will automatically retry setup later.
+        raise ConfigEntryNotReady(str(err)) from err
 
     return True
 
