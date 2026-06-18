@@ -24,6 +24,7 @@ from .const import CONF_BLUE_BUTTON_LED, CONF_LOCAL_CONFIG_REQUIRED, DOMAIN
 USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
+        vol.Optional(CONF_LOCAL_CONFIG_REQUIRED, default=False): bool,
     }
 )
 
@@ -83,6 +84,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     controller: VantageControllerDetails | None = None
     username: str | None = None
     password: str | None = None
+    local_config_required: bool = False
     reauth_entry: VantageConfigEntry | None = None
 
     @override
@@ -94,6 +96,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Abort if this exact host is already configured
         self._async_abort_entries_match({CONF_HOST: user_input[CONF_HOST]})
+
+        self.local_config_required = user_input.get(CONF_LOCAL_CONFIG_REQUIRED, False)
 
         # Get information about the controller, show an error if it cannot be reached
         self.controller = await get_controller_details(
@@ -116,6 +120,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_zeroconf(
         self, discovery_info: ZeroconfServiceInfo
     ) -> ConfigFlowResult:
+        # Abort immediately (no connections) if this host is already configured.
+        # This check catches entries that predate unique-id tracking.
+        self._async_abort_entries_match({CONF_HOST: discovery_info.host})
+
         serial_number = get_serial_from_hostname(discovery_info.hostname)
         if serial_number is None:
             return self.async_abort(reason="unknown")
@@ -213,7 +221,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(str(serial_number), raise_on_progress=False)
         self._abort_if_unique_id_configured(updates={CONF_HOST: self.controller.host})
 
-        # Create the config entry
+        # Create the config entry, seeding options so local_config_required is set
+        # from the very first boot (not just after the user visits the options UI).
         return self.async_create_entry(
             title="Vantage InFusion",
             data={
@@ -221,6 +230,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_SSL: self.controller.supports_ssl,
                 CONF_USERNAME: self.username,
                 CONF_PASSWORD: self.password,
+            },
+            options={
+                CONF_LOCAL_CONFIG_REQUIRED: self.local_config_required,
             },
         )
 
