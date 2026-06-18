@@ -1,6 +1,8 @@
 """The Vantage InFusion Controller integration."""
 
 import asyncio
+import importlib.metadata
+import logging
 from pathlib import Path
 
 from aiovantage import Vantage
@@ -32,6 +34,8 @@ from .events import async_setup_events
 from .migrate import async_migrate_data
 from .services import async_register_services
 
+_LOGGER = logging.getLogger(__name__)
+
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.CLIMATE,
@@ -57,6 +61,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: VantageConfigEntry) -> b
     use_local_only = entry.options.get(CONF_LOCAL_CONFIG_REQUIRED, False)
     candidate = Path(hass.config.config_dir) / f"{host}_config.txt"
     local_config_file = candidate if (use_local_only or candidate.is_file()) else None
+
+    # Diagnostic: log aiovantage version and config file state so we can confirm
+    # which library version HA has installed and whether the file will be used.
+    try:
+        _aiovantage_version = importlib.metadata.version("aiovantage")
+    except importlib.metadata.PackageNotFoundError:
+        _aiovantage_version = "unknown"
+    _LOGGER.warning(
+        "Vantage setup: aiovantage==%s, use_local_only=%s, candidate=%s, file_exists=%s",
+        _aiovantage_version,
+        use_local_only,
+        candidate,
+        candidate.is_file(),
+    )
 
     # Create a Vantage client
     vantage = Vantage(
