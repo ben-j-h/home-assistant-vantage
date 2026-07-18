@@ -50,10 +50,12 @@
       "init": {
         "data": {
           "blue_button_led": "Blue button LED support",
-          "local_config_required": "Use local config file only (never pull from controller)"
+          "local_config_required": "Use local config file only (never pull from controller)",
+          "default_ramp_rate": "Default ramp time (seconds)"
         },
         "data_description": {
-          "local_config_required": "When enabled, the integration will only load objects from the local {host}_config.txt backup file. If the file is missing, setup will fail with an error rather than fetching live data from the controller."
+          "local_config_required": "When enabled, the integration will only load objects from the local {host}_config.txt backup file. If the file is missing, setup will fail with an error rather than fetching live data from the controller.",
+          "default_ramp_rate": "Fade time the controller uses for light on/off when no transition is specified. Applies to dimmable loads; set to 0 to turn on/off instantly."
         }
       }
     }
