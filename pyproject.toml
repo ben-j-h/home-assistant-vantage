@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "home-assistant-vantage"
-version = "0.15.6"
+version = "0.16.0-beta.2"
 description = "Home Assistant integration for Vantage InFusion home automation controllers."
 readme = "README.md"
 requires-python = ">=3.14,<4.0"
