@@ -61,20 +61,46 @@ def async_delete_orphaned_button_devices(
 
     Button sensors and LEDs used to have no parent device, so each button got
     its own device (e.g. "Button 1336"). They now attach to their parent
-    keypad/TPT device via ``parent_obj``, so any leftover device whose
-    identifier is a Button's own VID is stale -- ``async_cleanup_devices``
+    keypad/TPT device via ``parent_obj``, so a leftover device whose
+    identifier is a Button's own VID is *usually* stale -- ``async_cleanup_devices``
     doesn't catch these because the button object itself still exists, it
     just no longer owns a device of its own.
+
+    IMPORTANT: removing a device from the device registry cascades to delete
+    every entity still registered against it. If a button's keypad/TPT lookup
+    ever fails at entity-setup time (e.g. the parent isn't in ``client.stations``
+    yet), its entities land back on this per-button device -- deleting it
+    unconditionally would silently delete those entities too. Only remove a
+    button-identified device once it has zero entities left on it; skip (and
+    log) anything still in use so it surfaces instead of disappearing.
     """
     vantage = entry.runtime_data.client
     dev_reg = dr.async_get(hass)
+    ent_reg = er.async_get(hass)
 
     orphaned_devices = []
+    skipped_devices = []
     for device in dr.async_entries_for_config_entry(dev_reg, entry.entry_id):
         device_id = next(x[1] for x in device.identifiers if x[0] == DOMAIN)
         vantage_id = int(device_id.split(":")[0])
-        if vantage_id in vantage.buttons:
+        if vantage_id not in vantage.buttons:
+            continue
+
+        if er.async_entries_for_device(
+            ent_reg, device.id, include_disabled_entities=True
+        ):
+            skipped_devices.append(device)
+        else:
             orphaned_devices.append(device)
+
+    if skipped_devices:
+        LOGGER.warning(
+            "%d button device(s) still have entities attached and were NOT "
+            "removed -- their keypad/TPT parent may have failed to resolve "
+            "this startup: %s",
+            len(skipped_devices),
+            [device.name for device in skipped_devices],
+        )
 
     if orphaned_devices:
         LOGGER.debug(
