@@ -15,11 +15,22 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_SSL, CONF_USERNAME
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+)
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.util.ssl import get_default_no_verify_context
 
 from .config_entry import VantageConfigEntry
-from .const import CONF_BLUE_BUTTON_LED, CONF_LOCAL_CONFIG_REQUIRED, DOMAIN
+from .const import (
+    CONF_BLUE_BUTTON_LED,
+    CONF_DEFAULT_RAMP_RATE,
+    CONF_LOCAL_CONFIG_REQUIRED,
+    DEFAULT_RAMP_RATE,
+    DOMAIN,
+)
 
 USER_SCHEMA = vol.Schema(
     {
@@ -64,6 +75,20 @@ class OptionsFlow(config_entries.OptionsFlow):
                             CONF_LOCAL_CONFIG_REQUIRED, False
                         ),
                     ): bool,
+                    vol.Required(
+                        CONF_DEFAULT_RAMP_RATE,
+                        default=self.config_entry.options.get(
+                            CONF_DEFAULT_RAMP_RATE, DEFAULT_RAMP_RATE
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=0,
+                            max=20,
+                            step=0.1,
+                            unit_of_measurement="s",
+                            mode=NumberSelectorMode.BOX,
+                        )
+                    ),
                 }
             ),
         )

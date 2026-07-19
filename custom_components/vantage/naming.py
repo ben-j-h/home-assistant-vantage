@@ -1,18 +1,21 @@
 """Hierarchical naming utilities for Vantage entities and devices.
 
-Three public functions, all using the same area-lineage algorithm:
-
   hierarchical_load_name()    — entity display name for Load objects
   hierarchical_station_name() — device display name for Station objects (keypads, relays)
-  hierarchical_button_name()  — entity display name for Button objects
+  button_entity_name()        — device-relative entity display name for Button objects
 
-The load-naming algorithm replicates pyvantage register_id() exactly so that
-entity IDs match the old integration, preserving automations and history.
+The load/station naming algorithm replicates pyvantage register_id() exactly
+so that entity IDs match the old integration, preserving automations and
+history. Button entities live under their parent keypad/TPT device instead
+(``has_entity_name = True``), so their naming is device-relative rather than
+hierarchical -- see button_entity_name().
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
+from aiovantage.objects import TPT
 
 if TYPE_CHECKING:
     from aiovantage import Vantage
@@ -86,45 +89,36 @@ def hierarchical_station_name(client: "Vantage", obj: "LocationObject") -> str:
     return prefix + station_name
 
 
-def hierarchical_button_name(client: "Vantage", obj: "Button") -> str:
-    """Build a hierarchical name for a button entity.
+def button_entity_name(client: "Vantage", obj: "Button") -> str:
+    """Build a device-relative name for a button entity: "Button {pos} (label)".
 
-    Format: "Area1-Area2-StationName-ButtonText"
+    Buttons live under their parent keypad/TPT device (``has_entity_name`` is
+    True), so this returns only the button's own identity -- HA prepends the
+    device name automatically. The position is always included so buttons are
+    identifiable and orderable even when no label can be found; a label is
+    appended in parentheses when one resolves, checked in this order:
 
-    When the parent station is not found in ``client.stations`` (e.g. the
-    button belongs to a non-standard station type), falls back to a
-    hierarchical area name derived from the parent object's area field, if
-    one is available.  As a last resort returns the button's own name.
+      1. The button's own engraved text (``text1``/``text2``).
+      2. The button's own ``name`` (e.g. "Left Button" on a TPT).
+      3. For TPT touchscreen buttons, the on-screen LCD widget label that
+         targets this button (``TPT.button_labels()``) -- most physical
+         Button objects on a TPT are blank; the real label is drawn on the
+         touchscreen page instead.
+
+    Buttons with none of the above are named just "Button {pos}".
     """
+    pos = obj.parent.position
+    label = (
+        " ".join(p for p in (obj.text1.strip(), obj.text2.strip()) if p)
+        or obj.name.strip()
+        or _tpt_button_label(client, obj)
+    )
+    return f"Button {pos}" + (f" ({label})" if label else "")
+
+
+def _tpt_button_label(client: "Vantage", obj: "Button") -> str:
+    """Return the on-screen LCD label for a TPT button, if any."""
     station = client.stations.get(obj.parent.vid)
-
-    if station is None:
-        # Try to find the parent object and derive area-based naming from it
-        parent = client.get(obj.parent.vid)
-        area_vid = getattr(parent, "area", None) if parent else None
-        if area_vid:
-            lineage = get_area_lineage(client, area_vid)
-            parts = [
-                p
-                for p in reversed(lineage[:-1])
-                if not p.startswith("Station Load ")
-                and not p.startswith("Color Load ")
-            ]
-            prefix = "-".join(parts) + "-" if parts else ""
-        else:
-            prefix = ""
-        btn_name = obj.text1.strip() or obj.name.strip()
-        return (prefix + btn_name) if btn_name else prefix.rstrip("-")
-
-    lineage = get_area_lineage(client, station.area)
-    parts = [
-        p
-        for p in reversed(lineage[:-1])
-        if not p.startswith("Station Load ")
-        and not p.startswith("Color Load ")
-    ]
-    station_name = (station.d_name or "").strip() or station.name.strip() or str(station.vid)
-    parts.append(station_name)
-    prefix = "-".join(parts) + "-" if parts else ""
-    btn_name = obj.text1.strip() or obj.name.strip()
-    return (prefix + btn_name) if btn_name else prefix.rstrip("-")
+    if not isinstance(station, TPT):
+        return ""
+    return station.button_labels().get(obj.vid, "")

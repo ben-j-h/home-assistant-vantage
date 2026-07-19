@@ -5,7 +5,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
 from .config_entry import VantageConfigEntry
-from .const import LOGGER
+from .const import DOMAIN, LOGGER
 
 
 async def async_migrate_data(hass: HomeAssistant, entry: VantageConfigEntry) -> None:
@@ -13,6 +13,7 @@ async def async_migrate_data(hass: HomeAssistant, entry: VantageConfigEntry) -> 
 
     async_delete_back_boxes(hass, entry)
     async_delete_serial_number_entities(hass, entry)
+    async_delete_orphaned_button_devices(hass, entry)
 
 
 def async_delete_back_boxes(hass: HomeAssistant, entry: VantageConfigEntry) -> None:
@@ -51,3 +52,34 @@ def async_delete_serial_number_entities(
 
         for entity in serial_number_entities:
             ent_reg.async_remove(entity.entity_id)
+
+
+def async_delete_orphaned_button_devices(
+    hass: HomeAssistant, entry: VantageConfigEntry
+) -> None:
+    """Delete standalone devices left behind by buttons that now live on their keypad.
+
+    Button sensors and LEDs used to have no parent device, so each button got
+    its own device (e.g. "Button 1336"). They now attach to their parent
+    keypad/TPT device via ``parent_obj``, so any leftover device whose
+    identifier is a Button's own VID is stale -- ``async_cleanup_devices``
+    doesn't catch these because the button object itself still exists, it
+    just no longer owns a device of its own.
+    """
+    vantage = entry.runtime_data.client
+    dev_reg = dr.async_get(hass)
+
+    orphaned_devices = []
+    for device in dr.async_entries_for_config_entry(dev_reg, entry.entry_id):
+        device_id = next(x[1] for x in device.identifiers if x[0] == DOMAIN)
+        vantage_id = int(device_id.split(":")[0])
+        if vantage_id in vantage.buttons:
+            orphaned_devices.append(device)
+
+    if orphaned_devices:
+        LOGGER.debug(
+            f"Deleting {len(orphaned_devices)} orphaned button devices from the registry."
+        )
+
+        for device in orphaned_devices:
+            dev_reg.async_remove_device(device.id)

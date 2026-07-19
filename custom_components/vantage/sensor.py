@@ -28,7 +28,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .config_entry import VantageConfigEntry
 from .entity import VantageEntity, add_entities_from_controller
-from .naming import hierarchical_button_name
+from .naming import button_entity_name
 
 FOOT_CANDLES_TO_LUX = 10.7639
 
@@ -223,7 +223,6 @@ class VantageButtonSensorEntity(VantageEntity[Button], SensorEntity, RestoreEnti
     on HA restart so entity history remains continuous.
     """
 
-    _attr_has_entity_name = False
     _attr_icon = "mdi:gesture-tap-button"
 
     def __init__(
@@ -234,15 +233,15 @@ class VantageButtonSensorEntity(VantageEntity[Button], SensorEntity, RestoreEnti
     ) -> None:
         """Initialize the button sensor."""
         super().__init__(entry, controller, obj)
-        # Attach to the parent station device if available
+        # Attach to the parent keypad/TPT device if available
         if station := self.client.stations.get(obj.parent.vid):
             self.parent_obj = station
 
     @property
     @override
     def name(self) -> str:
-        """Return the hierarchical name for the button sensor."""
-        return hierarchical_button_name(self.client, self.obj)
+        """Return the device-relative name for the button sensor."""
+        return button_entity_name(self.client, self.obj)
 
     @property
     @override

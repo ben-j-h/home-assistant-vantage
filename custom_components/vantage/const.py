@@ -29,3 +29,8 @@ CONF_BLUE_BUTTON_LED = "blue_button_led"
 # When True, raise an error if the local config file is missing instead of
 # falling back to live discovery from the controller.
 CONF_LOCAL_CONFIG_REQUIRED = "local_config_required"
+
+# Default ramp (fade) time in seconds applied to load on/off when the caller
+# does not specify an explicit transition. Applied controller-side via Load.Ramp.
+CONF_DEFAULT_RAMP_RATE = "default_ramp_rate"
+DEFAULT_RAMP_RATE = 1.5

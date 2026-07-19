@@ -21,11 +21,17 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util.color import brightness_to_value, value_to_brightness
 
 from .config_entry import VantageConfigEntry
+from .const import CONF_DEFAULT_RAMP_RATE, DEFAULT_RAMP_RATE
 from .entity import VantageEntity, add_entities_from_controller
 from .naming import hierarchical_load_name
 
 # Vantage level range for converting between HA brightness and Vantage levels
 LEVEL_RANGE = (1, 100)
+
+
+def _default_ramp(entry: VantageConfigEntry) -> float:
+    """Return the configured default ramp (fade) time in seconds."""
+    return entry.options.get(CONF_DEFAULT_RAMP_RATE, DEFAULT_RAMP_RATE)
 
 
 async def async_setup_entry(
@@ -119,14 +125,16 @@ class VantageLoadLightEntity(VantageEntity[Load], LightEntity):
 
     @override
     async def async_turn_on(self, **kwargs: Any) -> None:
-        transition = kwargs.get(ATTR_TRANSITION, 0)
+        default = _default_ramp(self.entry) if self.is_dimmable else 0
+        transition = kwargs.get(ATTR_TRANSITION, default)
         level = brightness_to_value(LEVEL_RANGE, kwargs.get(ATTR_BRIGHTNESS, 255))
 
         await self.async_request_call(self.obj.turn_on(transition, level))
 
     @override
     async def async_turn_off(self, **kwargs: Any) -> None:
-        transition = kwargs.get(ATTR_TRANSITION, 0)
+        default = _default_ramp(self.entry) if self.is_dimmable else 0
+        transition = kwargs.get(ATTR_TRANSITION, default)
 
         await self.async_request_call(self.obj.turn_off(transition))
 
@@ -160,14 +168,14 @@ class VantageLoadGroupLightEntity(VantageEntity[LoadGroup], LightEntity):
 
     @override
     async def async_turn_on(self, **kwargs: Any) -> None:
-        transition = kwargs.get(ATTR_TRANSITION, 0)
+        transition = kwargs.get(ATTR_TRANSITION, _default_ramp(self.entry))
         level = brightness_to_value(LEVEL_RANGE, kwargs.get(ATTR_BRIGHTNESS, 255))
 
         await self.async_request_call(self.obj.turn_on(transition, level))
 
     @override
     async def async_turn_off(self, **kwargs: Any) -> None:
-        transition = kwargs.get(ATTR_TRANSITION, 0)
+        transition = kwargs.get(ATTR_TRANSITION, _default_ramp(self.entry))
 
         await self.async_request_call(self.obj.turn_off(transition))
 
@@ -273,7 +281,7 @@ class VantageRGBLoadLightEntity(VantageEntity[RGBLoadTypes], LightEntity):
 
     @override
     async def async_turn_on(self, **kwargs: Any) -> None:
-        transition = kwargs.get(ATTR_TRANSITION, 0)
+        transition = kwargs.get(ATTR_TRANSITION, _default_ramp(self.entry))
         brightness = kwargs.get(ATTR_BRIGHTNESS)
 
         if ATTR_RGBW_COLOR in kwargs:
@@ -330,7 +338,7 @@ class VantageRGBLoadLightEntity(VantageEntity[RGBLoadTypes], LightEntity):
 
     @override
     async def async_turn_off(self, **kwargs: Any) -> None:
-        transition = kwargs.get(ATTR_TRANSITION, 0)
+        transition = kwargs.get(ATTR_TRANSITION, _default_ramp(self.entry))
 
         await self.async_request_call(self.obj.turn_off(transition))
 
