@@ -20,7 +20,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .config_entry import VantageConfigEntry
 from .const import CONF_BLUE_BUTTON_LED
 from .entity import VantageEntity, add_entities_from_controller
-from .naming import hierarchical_button_name
+from .naming import button_entity_name
 
 # Default green for first turn-on; safe on all RG and RGB hardware
 _DEFAULT_ACTIVE_COLOR: tuple[int, int, int] = (0, 255, 0)
@@ -62,7 +62,6 @@ class VantageButtonLEDEntity(VantageEntity[Button], LightEntity):
     Red/Green LEDs.
     """
 
-    _attr_has_entity_name = False
     _attr_icon = "mdi:led-on"
     # CONFIG keeps this entity out of area-targeted service calls so that
     # "turn off all lights in Living Room" never touches keypad LEDs.
@@ -81,8 +80,8 @@ class VantageButtonLEDEntity(VantageEntity[Button], LightEntity):
     ) -> None:
         """Initialize the button LED entity."""
         super().__init__(entry, controller, obj)
-        # Attach to the parent station device so the LED appears alongside the
-        # button sensor in the station's device page.
+        # Attach to the parent keypad/TPT device so the LED appears alongside
+        # the button sensor on the keypad's device page.
         if station := self.client.stations.get(obj.parent.vid):
             self.parent_obj = station
 
@@ -94,7 +93,7 @@ class VantageButtonLEDEntity(VantageEntity[Button], LightEntity):
     @property
     @override
     def name(self) -> str:
-        return hierarchical_button_name(self.client, self.obj) + " LED"
+        return button_entity_name(self.client, self.obj) + " LED"
 
     @property
     def _blue_enabled(self) -> bool:
