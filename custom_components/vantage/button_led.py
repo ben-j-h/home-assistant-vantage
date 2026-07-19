@@ -4,7 +4,7 @@ from typing import Any, override
 
 from aiovantage.controllers import Controller
 from aiovantage.object_interfaces import ButtonInterface
-from aiovantage.objects import Button, Dimmer, DualRelayStation, ScenePointRelay
+from aiovantage.objects import TPT, Button, Dimmer, DualRelayStation, ScenePointRelay
 
 from homeassistant.components.light import (
     ATTR_EFFECT,
@@ -42,11 +42,17 @@ async def async_setup_entry(
     """Set up Vantage button LED light entities from a config entry."""
     vantage = entry.runtime_data.client
 
+    def _has_led(button: Button) -> bool:
+        # TPT buttons are touchscreen widgets, not illuminated hardware --
+        # only physical keypad/relay buttons have an LED to control.
+        return not isinstance(vantage.stations.get(button.parent.vid), TPT)
+
     add_entities_from_controller(
         entry,
         async_add_entities,
         VantageButtonLEDEntity,
         vantage.buttons,
+        _has_led,
     )
 
 
